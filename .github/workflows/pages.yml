@@ -27,10 +27,22 @@ jobs:
           persist-credentials: false
       - name: Configure Pages
         uses: actions/configure-pages@v5
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Test and build
+        run: |
+          npm test
+          npm run build
       - name: Upload game files
         uses: actions/upload-pages-artifact@v4
         with:
-          path: web/dist
+          path: dist
       - name: Publish to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

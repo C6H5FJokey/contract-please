@@ -1,28 +1,33 @@
-import { findChapter } from "./chapters/index.js";
+import { findChapter } from "./chapters.js";
 import { openNegotiation } from "./negotiation.js";
 import { createPlayback } from "./playback.js";
+import type { Command, DocumentVersion, GameEvent, Hotspot, Reference, Save } from "./model.js";
 
-const $ = id => document.getElementById(id);
-const chapter = findChapter(new URLSearchParams(location.search).get("chapter"));
+const $ = <T extends HTMLElement = HTMLElement>(id: string) => {
+  const element = document.getElementById(id);
+  if (!element) throw new Error(`Missing page element: ${id}`);
+  return element as T;
+};
+const { chapter, story } = findChapter(new URLSearchParams(location.search).get("chapter"));
 const timeline = $("timeline");
-const chat = timeline.closest(".chat");
+const chat = timeline.closest<HTMLElement>(".chat")!;
 const composer = $("composer");
 const sheet = $("sheet");
-const board = document.querySelector(".board");
-const modal = $("modal");
+const board = document.querySelector<HTMLElement>(".board")!;
+const modal = $<HTMLDialogElement>("modal");
 const saveKey = `contract-please:negotiation:${chapter.id}`;
-const startOfLog = timeline.firstElementChild;
-const currentFileKey = (id, version) => `${id}:${version}`;
-const quoteKey = ref => `${ref.document}:${ref.line}`;
-const quoteRef = ({ document, version, line }) => ({ document, version, line });
-const asThought = text => `（${text}）`;
-const node = (tag, className, text) => {
+const startOfLog = timeline.firstElementChild!;
+const currentFileKey = (id: string, version: number) => `${id}:${version}`;
+const quoteKey = (ref: Reference) => `${ref.document}:${ref.line}`;
+const quoteRef = ({ document, version, line }: Reference): Reference => ({ document, version, line });
+const asThought = (text: string) => `（${text}）`;
+const node = <T extends keyof HTMLElementTagNameMap>(tag: T, className = "", text?: string) => {
   const element = document.createElement(tag);
   if (className) element.className = className;
   if (text !== undefined) element.textContent = text;
   return element;
 };
-function button(text, handler, className = "") {
+function button(text: string, handler: () => void, className = "") {
   const result = node("button", className, text);
   result.type = "button";
   result.addEventListener("click", handler);
@@ -33,18 +38,23 @@ function load() {
   try {
     const saved = localStorage.getItem(saveKey);
     if (saved) {
-      const progress = JSON.parse(saved);
-      return { game: openNegotiation(chapter, progress), restored: true, readThrough: progress.readThrough };
+      const progress: Save = JSON.parse(saved);
+      return { game: openNegotiation(chapter, story, progress), restored: true, readThrough: progress.readThrough };
     }
   } catch { /* A bad or obsolete save opens a new session. */ }
-  return { game: openNegotiation(chapter), restored: false };
+  return { game: openNegotiation(chapter, story), restored: false };
 }
 
 let { game, restored, readThrough } = load();
 let view = game.view();
-let delivered, unread, docId, docVersion, picked, reused, displayPatience, waitRow, resultRow, skipButton;
+type Selection = Reference & { text: string; name: string };
+let delivered: Set<string>, unread: Set<string>, docId: string, docVersion: number | null;
+let picked: Selection | null, reused: Selection[], displayPatience: number;
+let waitRow: HTMLButtonElement | undefined, resultRow: HTMLElement | undefined, skipButton: HTMLButtonElement | undefined;
+let showPlan = false;
+let selectedSpot: Hotspot | undefined;
 let playing = false;
-let fileReview;
+let fileReview: { through: number; resolve: () => void } | undefined;
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
 for (const [id, label] of Object.entries({
@@ -52,7 +62,7 @@ for (const [id, label] of Object.entries({
   avatar: chapter.contact.mark, contact: chapter.contact.name, "contact-role": chapter.contact.role,
 })) $(id).textContent = label;
 
-function switchPane(pane) {
+function switchPane(pane: "docs" | "chat") {
   board.dataset.pane = pane;
   $("tab-docs").setAttribute("aria-pressed", String(pane === "docs"));
   $("tab-chat").setAttribute("aria-pressed", String(pane === "chat"));
@@ -62,7 +72,7 @@ $("tab-chat").addEventListener("click", () => switchPane("chat"));
 
 const atBottom = () => timeline.scrollHeight - timeline.clientHeight - timeline.scrollTop < 46;
 const scrollToEnd = () => { timeline.scrollTop = timeline.scrollHeight; };
-function log(element) {
+function log(element: HTMLElement) {
   const follow = atBottom();
   timeline.append(element);
   if (follow) scrollToEnd();
@@ -72,11 +82,13 @@ function visibleFiles() {
   return view.documents.filter(file => delivered.has(currentFileKey(file.id, file.version)));
 }
 
-function openFile(id, version = null) {
+function openFile(id: string, version: number | null = null) {
   const files = visibleFiles().filter(file => file.id === id);
-  if (!files.length) return;
+  const latest = files.at(-1);
+  if (!latest) return;
+  showPlan = false;
   docId = id;
-  docVersion = version === files.at(-1).version ? null : version;
+  docVersion = version === latest.version ? null : version;
   unread.delete(id);
   switchPane("docs");
   renderDocuments(true);
@@ -84,7 +96,7 @@ function openFile(id, version = null) {
 
 function updateQuotes() {
   const confirmed = view.proof?.confirmed ?? [];
-  sheet.querySelectorAll("[data-quote]").forEach(element => {
+  sheet.querySelectorAll<HTMLButtonElement>("[data-quote]").forEach(element => {
     const isPicked = picked && quoteKey(picked) === element.dataset.quote &&
       picked.version === Number(element.dataset.version);
     const used = confirmed.find(ref => quoteKey(ref) === element.dataset.quote);
@@ -97,14 +109,14 @@ function updateQuotes() {
   footer.replaceChildren();
   if (fileReview) {
     footer.append(button("看完了，继续", finishFileReview, "primary mobile-only"));
-  } else if (!footer.hidden) {
+  } else if (!footer.hidden && view.proof) {
     footer.append(node("span", "", `第 ${confirmed.length + 1} / ${view.proof.count} 段 · ${picked ? "已圈选" : "待圈选"}`),
       button("返回交涉", () => { switchPane("chat"); scrollToEnd(); }, "quiet mobile-only"));
   }
   if (footer.hidden) sheet.classList.remove("quote-target");
 }
 
-function pickQuote(quote) {
+function pickQuote(quote: Selection | null) {
   picked = quote;
   sheet.classList.remove("quote-target");
   updateQuotes();
@@ -112,9 +124,10 @@ function pickQuote(quote) {
 }
 
 function focusQuotation() {
+  if (showPlan) openFile(chapter.contract);
   switchPane("docs");
   sheet.classList.add("quote-target");
-  const lines = [...sheet.querySelectorAll(".quote-line:enabled")];
+  const lines = [...sheet.querySelectorAll<HTMLButtonElement>(".quote-line:enabled")];
   const bounds = sheet.getBoundingClientRect();
   const target = lines.find(line => {
     const box = line.getBoundingClientRect();
@@ -126,16 +139,18 @@ function focusQuotation() {
   } else sheet.focus({ preventScroll: true });
 }
 
-function previousTexts(versions, current) {
-  const history = new Map();
-  const previous = new Map();
+function previousTexts(versions: DocumentVersion[], current: DocumentVersion) {
+  type LineVersion = { text: string; version: number };
+  const history = new Map<string, LineVersion[]>();
+  const previous = new Map<string, LineVersion>();
   for (const version of versions) {
     for (const { lines } of version.sections) {
       for (const line of lines) {
         const old = previous.get(line.id);
         if (old && old.text !== line.text) {
-          if (!history.has(line.id)) history.set(line.id, []);
-          history.get(line.id).push(old);
+          const replaced = history.get(line.id) ?? [];
+          replaced.push(old);
+          history.set(line.id, replaced);
         }
         previous.set(line.id, { text: line.text, version: version.version });
       }
@@ -143,6 +158,51 @@ function previousTexts(versions, current) {
     if (version === current) break;
   }
   return history;
+}
+
+function openPlan() {
+  showPlan = true;
+  switchPane("docs");
+  renderDocuments(true);
+}
+
+function renderFloorPlan() {
+  const plan = chapter.floorPlan;
+  if (!plan) return;
+  const paper = node("article", "paper");
+  paper.append(node("h3", "", "户型图"));
+  const map = node("div", "floor-plan");
+  const picture = node("img");
+  picture.src = plan.image;
+  picture.alt = plan.alt;
+  map.append(picture);
+  const spot = selectedSpot;
+  const info = node("div", "inspection");
+  for (const point of plan.hotspots) {
+    const mark = button(point.label, () => {
+      selectedSpot = point;
+      if (!view.review.clues.includes(point.id) && view.review.choosing && !playing) {
+        dispatch({ type: "investigate", id: point.id });
+      } else {
+        renderFloorPlan();
+      }
+      sheet.querySelector<HTMLElement>(".inspection")?.focus({ preventScroll: true });
+    }, "hotspot");
+    mark.style.left = `${point.x}%`;
+    mark.style.top = `${point.y}%`;
+    mark.setAttribute("aria-pressed", String(point.id === spot?.id));
+    mark.disabled = !view.review.clues.includes(point.id) && (!view.review.choosing || playing);
+    map.append(mark);
+  }
+  paper.append(map, info);
+  if (spot && view.review.clues.includes(spot.id)) {
+    info.tabIndex = -1;
+    info.append(node("p", "", asThought(spot.observation)));
+    if (spot.topic && view.review.choosing && !playing) {
+      info.append(button("就这处问房东", () => dispatch({ type: "openTopic", from: "hotspot", id: spot.id }), "primary"));
+    }
+  }
+  sheet.replaceChildren(paper);
 }
 
 function renderDocuments(resetScroll = false) {
@@ -153,10 +213,21 @@ function renderDocuments(resetScroll = false) {
   $("doc-count").textContent = `${files.length} 份文件`;
   tabs.replaceChildren(...files.map(file => {
     const tab = button(file.name, () => openFile(file.id), "file-tab");
-    tab.setAttribute("aria-pressed", String(docId === file.id));
+    tab.setAttribute("aria-pressed", String(!showPlan && docId === file.id));
     if (unread.has(file.id)) tab.classList.add("unread");
     return tab;
   }));
+  if (chapter.floorPlan) {
+    const tab = button("户型图", () => openPlan(), "file-tab");
+    tab.setAttribute("aria-pressed", String(showPlan));
+    tabs.append(tab);
+    if (showPlan) {
+      renderFloorPlan();
+      sheet.scrollTop = resetScroll ? 0 : scroll;
+      updateQuotes();
+      return;
+    }
+  }
   const versions = available.filter(file => file.id === docId);
   const latest = versions.at(-1);
   const current = versions.find(file => file.version === docVersion) ?? latest;
@@ -171,7 +242,7 @@ function renderDocuments(resetScroll = false) {
     select.setAttribute("aria-label", "文件版本");
     for (const version of versions.slice().reverse()) {
       const option = node("option", "", `第 ${version.version} 版${version === latest ? " · 当前" : " · 旧稿"}`);
-      option.value = version.version;
+      option.value = String(version.version);
       option.selected = version === current;
       select.append(option);
     }
@@ -183,12 +254,13 @@ function renderDocuments(resetScroll = false) {
   for (const section of current.sections) {
     const block = node("section", "term");
     const topic = current.id === chapter.contract && current === latest
-      ? view.review?.topics.find(item => item.id === section.id)
-      : null;
+      ? view.review.topics.find(item => section.id && item.id === chapter.clauseTopics[section.id])
+      : undefined;
     const heading = node("h4", topic ? "topic-heading" : "", topic ? undefined : section.label);
     if (topic) {
-      if (view.review.choosing && !playing) {
-        const start = button("", () => dispatch({ type: "openTopic", id: topic.id }), "topic-start");
+      if (section.id && view.review.choosing && !playing) {
+        const id = section.id;
+        const start = button("", () => dispatch({ type: "openTopic", from: "clause", id }), "topic-start");
         const indicators = node("span", "topic-indicators");
         if (topic.amended) indicators.append(node("span", "topic-indicator amended", "已改稿"));
         indicators.append(node("span", "topic-indicator", topic.amended ? "继续谈 →" : "从这条谈 →"));
@@ -220,7 +292,7 @@ function renderDocuments(resetScroll = false) {
           pickQuote(picked && quoteKey(picked) === key && picked.version === current.version ? null : ref);
         }, "quote-line");
         control.dataset.quote = key;
-        control.dataset.version = current.version;
+        control.dataset.version = String(current.version);
         if (edits) control.classList.add("revised-line");
         block.append(control);
       } else if (edits) {
@@ -236,7 +308,7 @@ function renderDocuments(resetScroll = false) {
   updateQuotes();
 }
 
-function announce(text) { $("announce").textContent = text; }
+function announce(text: string) { $("announce").textContent = text; }
 
 function renderPatience() {
   const bar = $("patience");
@@ -249,8 +321,8 @@ function renderPatience() {
   bar.replaceChildren(node("span", "minor", "耐心"), hearts);
 }
 
-function renderEvent(event, text = event.text, replay = false) {
-  let row;
+function renderEvent(event: GameEvent, text = "text" in event ? event.text : undefined, replay = false) {
+  let row: HTMLElement | undefined;
   if (event.kind === "message") {
     const own = event.who === "player";
     row = node("article", `message ${own ? "own" : "incoming"}`);
@@ -259,7 +331,7 @@ function renderEvent(event, text = event.text, replay = false) {
     row.append(bubble);
     log(row);
     if (text !== event.text) bubble.classList.add("streaming");
-    return updated => {
+    return (updated: string) => {
       const follow = atBottom();
       bubble.textContent = updated;
       if (updated === event.text) bubble.classList.remove("streaming");
@@ -314,11 +386,14 @@ function renderEvent(event, text = event.text, replay = false) {
     row = node("p", "log-note amendment", `改稿已收到 · ${event.title}${event.recovered ? " · 耐心 +1" : ""}`);
   } else if (event.kind === "thought") {
     row = node("p", "thought", event.text);
+  } else if (event.kind === "discovery") {
+    row = node("p", "thought", asThought(event.text));
   }
   if (row) log(row);
+  return undefined;
 }
 
-function renderWaiting(text) {
+function renderWaiting(text?: string) {
   waitRow?.remove();
   waitRow = undefined;
   if (text) {
@@ -332,7 +407,7 @@ const playback = createPlayback({
   show: renderEvent,
   waiting: renderWaiting,
   reviewFiles(event) {
-    return new Promise(resolve => {
+    return new Promise<void>(resolve => {
       fileReview = { through: event.id, resolve };
       renderComposer();
       updateQuotes();
@@ -352,7 +427,8 @@ const playback = createPlayback({
 });
 
 chat.addEventListener("click", event => {
-  if (!playing || fileReview || event.target.closest("button, a, input, select, textarea, summary")) return;
+  if (!playing || fileReview || !(event.target instanceof Element) ||
+      event.target.closest("button, a, input, select, textarea, summary")) return;
   if (window.getSelection()?.isCollapsed === false) return;
   playback.skip();
 });
@@ -376,8 +452,9 @@ function finishFileReview() {
 }
 
 function availableReuse() {
-  if (!view.proof) return [];
-  return reused.filter(quote => !view.proof.confirmed.some(ref => quoteKey(ref) === quoteKey(quote)));
+  const proof = view.proof;
+  if (!proof) return [];
+  return reused.filter(quote => !proof.confirmed.some(ref => quoteKey(ref) === quoteKey(quote)));
 }
 
 function nextReused() {
@@ -386,7 +463,7 @@ function nextReused() {
   return (reused.length === view.proof.count || available.length === 1) ? available[0] ?? null : null;
 }
 
-function dispatch(command, previous = null) {
+function dispatch(command: Command, previous: Selection | null = null) {
   if (playing) return;
   const wasChoosing = view.review?.choosing;
   const delta = game.act(command);
@@ -401,11 +478,12 @@ function dispatch(command, previous = null) {
   if (!wasChoosing && view.review?.choosing) {
     docId = chapter.contract;
     docVersion = null;
+    showPlan = false;
   }
   if (command.type === "continue") displayPatience = view.patience;
   saveProgress();
   playing = true;
-  switchPane("chat");
+  if (command.type !== "investigate") switchPane("chat");
   sync();
   scrollToEnd();
   void playback.play(delta);
@@ -426,7 +504,7 @@ function renderComposer() {
     return;
   }
   composer.replaceChildren();
-  const addAction = (text, command, style = "reply") => composer.append(button(text, () => dispatch(command), style));
+  const addAction = (text: string, command: Command, style = "reply") => composer.append(button(text, () => dispatch(command), style));
   if (view.phase === "refused") {
     addAction("再谈一次 · 耐心回到 5", { type: "continue" });
     addAction("接受婉拒，放弃合同", { type: "finish", result: "leave" });
@@ -440,6 +518,7 @@ function renderComposer() {
       openFile(chapter.contract);
       sheet.focus({ preventScroll: true });
     }, "primary"));
+    if (chapter.floorPlan) row.append(button("看户型图", openPlan, "quiet"));
     if (view.amendments.length) row.append(button("核对完毕，结束审阅", showFinishDialog, "quiet"));
     composer.append(row);
   } else if (view.choices.length || view.review?.canEndTopic) {
@@ -460,6 +539,7 @@ function renderComposer() {
 }
 
 function renderProof() {
+  if (!view.proof) return;
   const { confirmed, count, defer } = view.proof;
   const header = node("div", "proof-header");
   header.append(node("p", "proof-kicker", `原文对照 · 第 ${confirmed.length + 1} / ${count} 段`),
@@ -493,7 +573,7 @@ function renderProof() {
 }
 
 function renderResult() {
-  if (playing || view.phase !== "ended" || resultRow) return;
+  if (playing || view.phase !== "ended" || !view.outcome || resultRow) return;
   const ending = chapter.endings[view.outcome];
   resultRow = node("article", "ending");
   resultRow.append(node("p", "eyebrow", "交涉结案"), node("h3", "", ending.title), node("p", "", asThought(ending.detail)));
@@ -503,7 +583,7 @@ function renderResult() {
     ["交涉僵局", view.stats.deadlocks], ["续关", view.stats.continues],
   ]) {
     const stat = node("div");
-    stat.append(node("dt", "", label), node("dd", "", String(value)));
+    stat.append(node("dt", "", String(label)), node("dd", "", String(value)));
     counts.append(stat);
   }
   resultRow.append(counts);
@@ -534,12 +614,12 @@ function sync() {
   $("contact-role").textContent = topic ? `${chapter.contact.role} · ${topic.label}` : chapter.contact.role;
   board.classList.toggle("can-reuse", Boolean(view.proof) && !playing);
   $("finish").hidden = view.phase !== "active";
-  $("finish").disabled = playing;
-  $("restart").disabled = playing;
+  $<HTMLButtonElement>("finish").disabled = playing;
+  $<HTMLButtonElement>("restart").disabled = playing;
   if (follow) scrollToEnd();
 }
 
-function confirm(title, detail, actions) {
+function confirm(title: string, detail: string, actions: [string, () => void, string][]) {
   const heading = node("h2", "", title);
   heading.id = "modal-title";
   const controls = node("div", "modal-actions");
@@ -564,18 +644,20 @@ $("restart").addEventListener("click", () => {
   confirm("重新打开这份邀约？", "当前交涉记录和改稿会清空。", [
     ["重新开始", () => {
       try { localStorage.removeItem(saveKey); } catch { /* Storage may be unavailable. */ }
-      game = openNegotiation(chapter);
+      game = openNegotiation(chapter, story);
       view = game.view();
       start(false);
     }, "primary"],
   ]);
 });
 
-function start(replay) {
+function start(replay: boolean) {
   delivered = new Set(chapter.initialFiles.map(id => currentFileKey(id, 1)));
   unread = new Set();
   docId = chapter.contract;
   docVersion = null;
+  showPlan = false;
+  selectedSpot = undefined;
   picked = null;
   reused = [];
   displayPatience = view.maxPatience;
@@ -585,11 +667,12 @@ function start(replay) {
   sheet.scrollTop = 0;
   if (replay) {
     // Saves from before file review played the entire history on load.
-    const restoredThrough = Number.isInteger(readThrough) ? readThrough : view.events.at(-1)?.id ?? 0;
+    const restoredThrough = typeof readThrough === "number" && Number.isInteger(readThrough)
+      ? readThrough : view.events.at(-1)?.id ?? 0;
     const pending = view.events.filter(event => event.id > restoredThrough);
     for (const event of view.events) {
       if (event.id > restoredThrough) break;
-      renderEvent(event, event.text, true);
+      renderEvent(event, undefined, true);
     }
     playing = pending.length > 0;
     if (!playing) displayPatience = view.patience;

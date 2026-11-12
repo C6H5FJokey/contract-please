@@ -103,6 +103,11 @@ h1, h2, h3, h4, p { margin: 0; }
   min-height: 100%; padding: clamp(12px, 2.2vw, 26px); border: 1px solid #ded9ca;
   background: var(--paper); box-shadow: 0 2px 6px #30392b10; overflow-wrap: anywhere;
 }
+.floor-plan { position: relative; margin: 14px 0; max-width: 620px; }
+.floor-plan img { display: block; width: 100%; height: auto; }
+.hotspot { position: absolute; transform: translate(-50%, -50%); padding: 6px 9px; border: 1px solid #51736a; border-radius: 6px; background: #fffdf1; color: #234b3d; font: inherit; font-size: .82rem; cursor: pointer; }
+.hotspot[aria-pressed="true"] { background: #234b3d; color: #fff; }
+.inspection { display: grid; gap: 9px; justify-items: start; }
 .sheet-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-bottom: 13px; border-bottom: 1px solid #cfcebe; }
 .sheet-heading h3 { margin-top: 5px; font-family: "Songti SC", SimSun, serif; font-size: 1.4rem; }
 .sheet-heading .eyebrow { font-size: .67rem; letter-spacing: .07em; }

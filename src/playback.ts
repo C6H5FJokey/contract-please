@@ -1,12 +1,23 @@
-export function createPlayback({ show, waiting, reviewFiles, onIdle, reduced }) {
-  let skipCurrent;
+import type { FileEvent, GameEvent } from "./model.js";
 
-  function interruptible(work) {
-    return new Promise(resolve => {
-      let timer;
+interface PlaybackOptions {
+  show: (event: GameEvent, text?: string) => ((text: string) => void) | undefined;
+  waiting: (text?: string) => void;
+  reviewFiles: (event: FileEvent) => Promise<void>;
+  onIdle: () => void;
+  reduced: () => boolean;
+}
+type Schedule = (callback: () => void, delay: number) => void;
+
+export function createPlayback({ show, waiting, reviewFiles, onIdle, reduced }: PlaybackOptions) {
+  let skipCurrent: (() => void) | undefined;
+
+  function interruptible(work: (later: Schedule, end: () => void) => void) {
+    return new Promise<void>(resolve => {
+      let timer: ReturnType<typeof setTimeout>;
       const end = () => {
         clearTimeout(timer);
-        skipCurrent = null;
+        skipCurrent = undefined;
         resolve();
       };
       skipCurrent = () => end();
@@ -14,7 +25,7 @@ export function createPlayback({ show, waiting, reviewFiles, onIdle, reduced }) 
     });
   }
 
-  async function play(events) {
+  async function play(events: GameEvent[]) {
     for (const [index, event] of events.entries()) {
       const incoming = event.kind === "message" && event.who === "contact";
       const attachment = event.kind === "file";
@@ -24,7 +35,7 @@ export function createPlayback({ show, waiting, reviewFiles, onIdle, reduced }) 
         waiting(attachment ? "正在发送文件…" : "对方正在输入…");
         await interruptible((later, end) => {
           const skip = skipCurrent;
-          skipCurrent = () => { jumped = true; skip(); };
+          skipCurrent = () => { jumped = true; skip?.(); };
           later(end, attachment ? 570 : 340);
         });
         waiting();
@@ -36,13 +47,13 @@ export function createPlayback({ show, waiting, reviewFiles, onIdle, reduced }) 
         await interruptible((later, end) => {
           const step = () => {
             count = Math.min(count + 1, chars.length);
-            setText(chars.slice(0, count).join(""));
+            setText?.(chars.slice(0, count).join(""));
             if (count === chars.length) end();
             else later(step, /[。？！…]/.test(chars[count - 1]) ? 85 : 22);
           };
           step();
         });
-        setText(event.text);
+        setText?.(event.text);
       } else {
         show(event);
       }
