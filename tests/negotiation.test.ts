@@ -162,6 +162,20 @@ test("a single quote can directly rebut the latest statement; a roster is not a 
   assert.match(lines(game, "roster").join(" "), /须到场/);
 });
 
+test("the campus card is available from the start and follows the normal proof rules", () => {
+  const game = start();
+  assert.equal(latest(game, "campusCard")?.name, "校园一卡通");
+
+  openTopic(game, "hours");
+  choose(game, "one");
+  const submission = present(game, [ref("campusCard", "card")]);
+  assert.equal(submission.accepted, false);
+  assert.match(eventText(game.view().events.find(event => event.id === submission.id + 1)), /工资还是打银行卡/);
+  assert.equal(game.view().patience, 4);
+  assert.equal(game.view().review.activeTopic, "hours");
+  assert.ok(game.view().choices.some(choice => choice.id === "one"));
+});
+
 test("an old quote changed by an amendment remains in the archive but cannot prove the new version", () => {
   const game = start();
   openTopic(game, "salary");

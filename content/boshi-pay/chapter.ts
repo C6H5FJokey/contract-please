@@ -4,8 +4,7 @@ export const boshi: Chapter = {
   "id": "boshi-pay",
   "revision": 3,
   "title": "泊石展务",
-  "subtitle": "01 / 八千怎么拆",
-  "setting": "展务执行助理 · 毕业后的第一份邀约",
+  "setting": "岗位：展务执行助理",
   "contact": {
     "name": "林悦",
     "role": "招聘 HR",
@@ -13,7 +12,8 @@ export const boshi: Chapter = {
   },
   "initialFiles": [
     "contract",
-    "interview"
+    "interview",
+    "campusCard"
   ],
   "contract": "contract",
   "start": "opening",
@@ -122,6 +122,21 @@ export const boshi: Chapter = {
             {
               "id": "joining",
               "text": "报到先去二号馆，我让运营带你进场。"
+            }
+          ]
+        }
+      ]
+    },
+    "campusCard": {
+      "name": "校园一卡通",
+      "detail": "毕业后还留在钱包里",
+      "sections": [
+        {
+          "label": "卡片",
+          "lines": [
+            {
+              "id": "card",
+              "text": "印有我学号的卡片，曾经的饭卡、门禁卡、借书证，也是我曾经是学生的证明。（里面好像还有六块三。）"
             }
           ]
         }
@@ -394,6 +409,12 @@ export const boshi: Chapter = {
             "interview.extra"
           ],
           "go": "weekendWindow_mistake_2"
+        },
+        {
+          "lines": [
+            "campusCard.card"
+          ],
+          "go": "weekendWindow_mistake_card"
         }
       ],
       "wrong": "weekendWindow_wrong",

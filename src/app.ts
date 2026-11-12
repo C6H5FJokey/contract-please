@@ -58,7 +58,7 @@ let fileReview: { through: number; resolve: () => void } | undefined;
 const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
 
 for (const [id, label] of Object.entries({
-  "case-title": chapter.title, "case-subtitle": chapter.subtitle, "case-setting": chapter.setting,
+  "case-title": chapter.title, "case-setting": chapter.setting,
   avatar: chapter.contact.mark, contact: chapter.contact.name, "contact-role": chapter.contact.role,
 })) $(id).textContent = label;
 

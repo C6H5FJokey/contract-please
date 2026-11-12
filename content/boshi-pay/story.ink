@@ -8,15 +8,15 @@ EXTERNAL in_game()
 -> opening
 
 === opening ===
-合同发你了，运营那边想下月就有人进场。你先看，哪条要确认就跟我说。
-我先把合同翻一遍。有哪条没看明白，我就从那一条问起。 # thought
+合同发你了，运营那边要求下月就有人进场。你对合同有什么问题吗？
+没想到能最后能拿到offer，不过接下来的合同决定了未来的生活，对此可千万不能掉以轻心。 # thought
 -> desk
 
 === term ===
-从报到那天算一年。前两个月是试用期，已经算在这一年里了，转正不会重新起算。
+这里的一年是从报到那天算起的。前两个月是试用期，也已经算在这一年里了，转正不会重新起算。
 + [签之前能把起止日期填好给我看一下吗？ # choice:dates]
     -> termDates
-+ [明白，试用期包含在一年里。我接着看。 # choice:done]
++ [明白了，我接着看。 # choice:done]
     -> desk
 
 === termDates ===
@@ -24,10 +24,10 @@ EXTERNAL in_game()
 -> desk
 
 === role ===
-平时去市展务中心的二号馆报到。进场以后主要跟签到、对物料，布展和撤展的时候跟着现场负责人走。
+平时去市展务中心的二号馆报到。进场以后主要要做的就是跟签到、对物料，布展和撤展的时候跟着现场负责人走。
 + [项目换了就要去别的城市吗？ # choice:locations]
     -> roleLocations
-+ [好，地点和日常工作我都记下了。 # choice:done]
++ [好，我明白了。 # choice:done]
     -> desk
 
 === roleLocations ===
@@ -38,11 +38,11 @@ EXTERNAL in_game()
 对，试用期也按实际到岗日期登记。入职当天把参保资料给我，我转给人事办。
 + [个人扣的那部分，我能在哪里核对？ # choice:records]
     -> insuranceRecords
-+ [了解，参保起点按入职日。那我先继续看合同。 # choice:done]
++ [了解，那我先继续看合同。 # choice:done]
     -> desk
 
 === insuranceRecords ===
-个人扣的部分在工资条上单独列。你查到的参保记录要是跟报到日期对不上，直接发我，我让人事核。
+个人扣的部分会在工资条上单独列。你查到的参保记录要是跟报到日期对不上，你直接发我，我让人事核。
 -> desk
 
 === copies ===
@@ -128,7 +128,7 @@ EXTERNAL in_game()
 -> END
 
 === fixedWindow_step_2 ===
-那面试时她给我的是哪个数？我得找出说的也是正常出勤的那一句。 # thought
+那面试时她给我的是哪个数？我得找出她当时说的那一句。 # thought
 -> END
 
 === fixedWindow_right_1 ===
@@ -247,6 +247,10 @@ EXTERNAL in_game()
 
 === weekendWindow_mistake_2 ===
 对，面试时我也是这么说的。你圈的这句和我现在说的一样啊。
+-> END
+
+=== weekendWindow_mistake_card ===
+这是……饭卡？工资还是打银行卡。你刚才问的是周六只去一场怎么算吧？
 -> END
 
 === weekendWindow_wrong ===

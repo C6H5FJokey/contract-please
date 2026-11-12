@@ -63,7 +63,7 @@ h1, h2, h3, h4, p { margin: 0; }
   display: flex; flex-direction: column; margin: 0 auto; padding: 0 clamp(14px, 4vw, 60px) 22px;
 }
 .case-title { flex: 0 0 auto; display: flex; align-items: end; justify-content: space-between; gap: 10px; padding: 18px 0 15px; }
-.case-title h1 { font-family: "Songti SC", SimSun, serif; font-size: clamp(1.8rem, 3.1vw, 2.6rem); margin-top: 3px; }
+.case-title h1 { font-family: "Songti SC", SimSun, serif; font-size: clamp(1.8rem, 3.1vw, 2.6rem); }
 .case-title > p { font-size: .84rem; color: var(--muted); padding-bottom: 3px; }
 .pane-tabs { display: none; }
 .board {
@@ -235,7 +235,6 @@ dialog p { margin: 10px 0 15px; color: var(--muted); font-size: .88rem; line-hei
   .workspace { padding: 0 8px 8px; }
   .case-title { align-items: center; gap: 6px; padding: 8px 5px; }
   .case-title h1 { font-size: 1.5rem; }
-  .case-title .eyebrow { font-size: .63rem; }
   .case-title > p { max-width: 55%; font-size: .69rem; text-align: right; }
   .pane-tabs { flex: 0 0 auto; display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 6px; gap: 4px; }
   .pane-tabs button { background: transparent; border: 1px solid var(--line); border-radius: 4px; min-height: 34px; font-size: .8rem; }

@@ -39,7 +39,6 @@ export interface Chapter {
   id: string;
   revision: number;
   title: string;
-  subtitle: string;
   setting: string;
   contact: { name: string; role: string; mark: string };
   initialFiles: string[];

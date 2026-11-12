@@ -4,7 +4,6 @@ export const windowDemo: Chapter = {
   id: "window-demo",
   revision: 1,
   title: "卧室窗户",
-  subtitle: "调查流程测试",
   setting: "房屋交付 · 测试场景",
   contact: { name: "周姐", role: "房东", mark: "周" },
   initialFiles: ["contract"],
