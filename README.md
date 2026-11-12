@@ -9,3 +9,7 @@
 - [劳动争议案例资料](docs/劳动争议案例资料.md)
 
 项目源码位于 `web/`。现有 Sites 部署检出保存在本机的 `.sites-checkout/`，发布时将项目源码同步到该检出。
+
+## GitHub Pages
+
+在仓库的 **Settings → Pages → Build and deployment** 中将 **Source** 设为 **GitHub Actions**。推送到 `main` 后，工作流会发布 `web/dist`。也可以在 **Actions → Deploy GitHub Pages** 手动运行，部署地址会显示在该次运行中。
