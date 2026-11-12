@@ -3,18 +3,51 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#173f38" />
+    <meta name="theme-color" content="#202b25" />
     <meta
       name="description"
-      content="陷阱合同是一款单人合同推理游戏。追问条款，圈出互相冲突的原文，核对改稿后再决定是否签署。"
+      content="《来，签合同》是一款单人合同交涉游戏。读合同，和对方谈，把互相冲突的原话摆在一起。"
     />
-    <title>陷阱合同 · 合同审阅推理游戏</title>
+    <title>来，签合同 · 合同审阅推理游戏</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <main id="app"></main>
-    <div id="toast" role="status" aria-live="polite"></div>
-    <dialog id="modal"></dialog>
+    <header class="masthead">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">签</span><div><strong>来，签合同</strong><small>CONTRACT, PLEASE</small></div></div>
+      <div class="mast-actions">
+        <button id="restart" type="button" class="quiet">重新开始</button>
+        <button id="finish" type="button" class="finish">结束审阅</button>
+      </div>
+    </header>
+    <main class="workspace">
+      <div class="case-title">
+        <div><p id="case-subtitle" class="eyebrow"></p><h1 id="case-title"></h1></div>
+        <p id="case-setting"></p>
+      </div>
+      <nav class="pane-tabs" aria-label="切换桌面区域">
+        <button type="button" id="tab-docs">合同与资料</button><button type="button" id="tab-chat">交涉</button>
+      </nav>
+      <div class="board" data-pane="chat">
+        <section class="panel dossier" aria-labelledby="docs-heading">
+          <div class="panel-head"><h2 id="docs-heading">合同与资料</h2><span id="doc-count" class="minor"></span></div>
+          <nav id="file-tabs" aria-label="已收到的文件"></nav>
+          <div id="sheet" class="sheet" tabindex="0" aria-label="当前文件"></div>
+          <div id="doc-footer" class="doc-footer" hidden></div>
+        </section>
+        <section class="panel chat" aria-labelledby="contact">
+          <div class="panel-head">
+            <div class="contact"><span id="avatar" aria-hidden="true"></span><div><h2 id="contact"></h2><p id="contact-role"></p></div></div>
+            <div id="patience"></div>
+          </div>
+          <div id="timeline" class="timeline" role="log" aria-label="交涉记录" aria-live="off" tabindex="0">
+            <p class="chat-date">签署前 · 交涉记录</p>
+          </div>
+          <div id="composer" class="composer" aria-label="交涉操作"></div>
+        </section>
+      </div>
+    </main>
+    <div id="announce" class="sr-only" role="status" aria-live="polite"></div>
+    <dialog id="modal" aria-labelledby="modal-title"></dialog>
     <script type="module" src="./app.js"></script>
   </body>
 </html>
