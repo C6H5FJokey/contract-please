@@ -1,4 +1,5 @@
 import type { Chapter } from "../../src/model.js";
+import { campusCard } from "../campus-card.js";
 
 export const boshi: Chapter = {
   "id": "boshi-pay",
@@ -127,21 +128,7 @@ export const boshi: Chapter = {
         }
       ]
     },
-    "campusCard": {
-      "name": "校园一卡通",
-      "detail": "毕业后还留在钱包里",
-      "sections": [
-        {
-          "label": "卡片",
-          "lines": [
-            {
-              "id": "card",
-              "text": "印有我学号的卡片，曾经的饭卡、门禁卡、借书证，也是我曾经是学生的证明。（里面好像还有六块三。）"
-            }
-          ]
-        }
-      ]
-    },
+    campusCard,
     "payroll": {
       "name": "项目岗薪酬确认单",
       "detail": "薪酬组 · 展务执行助理",

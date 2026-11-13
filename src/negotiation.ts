@@ -15,19 +15,26 @@ export function openNegotiation(chapter: Chapter, compiled: string, saved?: Save
   const history: Command[] = [];
   const events: GameEvent[] = [];
   const applied: string[] = [];
+  const proved = new Set<string>();
   const clues = new Set<string>();
   const stats = { submissions: 0, wrong: 0, deadlocks: 0, continues: 0 };
   let checkpoint: string | undefined;
   let outcome: Outcome | undefined;
   let activeTopic: string | undefined;
   let proof: Proof | undefined;
+  let proofId: string | undefined;
   let claim: string | undefined;
+  let claimSpeaker: string | undefined;
+  const drafts = new Map<Proof, Quote[]>();
   let choosing = false;
   let confirmed: Quote[] = [];
   let phase: Phase = "active";
   let patience = MAX_PATIENCE;
   const hotspots = chapter.floorPlan?.hotspots ?? [];
-  const dialogue = createDialogue(compiled, { hasFile: dossier.has, hasClue: id => clues.has(id) });
+  const dialogue = createDialogue(compiled, {
+    hasFile: dossier.has, hasClue: id => clues.has(id), hasAmendment: id => applied.includes(id),
+    hasProof: id => proved.has(id),
+  });
 
   const add = (data: EventData) => events.push({ ...data, id: events.length + 1 });
   const file = (document: DocumentVersion | null, revised = false) => {
@@ -40,23 +47,48 @@ export function openNegotiation(chapter: Chapter, compiled: string, saved?: Save
   }
 
   function emit(cues: Iterable<Cue>, quiet = false) {
-    let lastReply: string | undefined;
+    let lastReply: { text: string; speaker?: string } | undefined;
     for (const cue of cues) {
       if (quiet && cue.kind !== "desk") continue;
       switch (cue.kind) {
         case "contact": case "player":
-          add({ kind: "message", who: cue.kind, text: cue.text });
-          if (cue.kind === "contact") lastReply = cue.text;
+          add({ kind: "message", who: cue.kind, text: cue.text, ...(cue.speaker ? { speaker: cue.speaker } : {}) });
+          if (cue.kind === "contact") lastReply = cue;
           break;
         case "thought":
           add({ kind: "thought", text: `（${cue.text}）` });
           break;
         case "file": file(dossier.publish(cue.id)); break;
+        case "request": {
+          const document = dossier.publish(cue.id);
+          if (document) file(document);
+          else add({ kind: "locate", document: cue.id });
+          break;
+        }
+        case "signing": {
+          const pack = chapter.signing!;
+          if (cue.action === "send") {
+            for (const id of [chapter.contract, pack.directory, ...pack.attachments]) {
+              file(dossier.publish(id) ?? dossier.current(id));
+            }
+          } else if (cue.action === "request") {
+            const missing = pack.attachments.filter(id => !dossier.has(id));
+            if (missing.length) for (const id of missing) file(dossier.publish(id));
+            else add({ kind: "locate", document: pack.directory });
+          } else add({ kind: "review", mode: "files" });
+          break;
+        }
+        case "locate":
+          if (dossier.has(cue.id)) add({ kind: "locate", document: cue.id, line: cue.line });
+          break;
         case "proof":
+          proofId = cue.id;
           proof = chapter.proofs[cue.id];
           if (!proof) throw new Error(`Unknown proof: ${cue.id}`);
-          claim = proof.anchor === "reply" ? lastReply : undefined;
-          emit(dialogue.fragment(proof.steps[0]));
+          claim = proof.anchor === "reply" ? lastReply?.text : undefined;
+          claimSpeaker = proof.anchor === "reply" ? lastReply?.speaker : undefined;
+          confirmed = drafts.get(proof)?.map(quote => dossier.quote(quote)!) ?? [];
+          emit(dialogue.fragment(proof.steps[confirmed.length]));
           break;
         case "amend": {
           if (applied.includes(cue.id)) break;
@@ -75,6 +107,8 @@ export function openNegotiation(chapter: Chapter, compiled: string, saved?: Save
           choosing = true;
           activeTopic = undefined;
           break;
+        case "review": add({ kind: "review", mode: "finish" }); break;
+        case "leave": finish("leave"); return;
         case "deadlock":
           setback("deadlocks", chapter.deadlocks[cue.id]);
           return;
@@ -86,7 +120,9 @@ export function openNegotiation(chapter: Chapter, compiled: string, saved?: Save
     choosing = false;
     confirmed = [];
     proof = undefined;
+    proofId = undefined;
     claim = undefined;
+    claimSpeaker = undefined;
     emit(read(), quiet);
   }
 
@@ -106,17 +142,40 @@ export function openNegotiation(chapter: Chapter, compiled: string, saved?: Save
 
   function resolveProof(rule: Proof) {
     const stale = confirmed.some(q => !q.current);
-    const answer = !stale && rule.accepts.find(item => sameLines(item.lines, confirmed));
+    const covers = (keys: string[]) => keys.every(id => confirmed.some(q => lineKey(q) === id));
+    const current = confirmed.filter(quote => quote.current);
+    const candidates = rule.accepts.filter(item =>
+      (!item.unlessAmended || !applied.includes(item.unlessAmended)) &&
+      (rule.minQuotes === undefined
+        ? !stale && sameLines(item.lines, confirmed)
+        : item.lines.every(id => current.some(quote => lineKey(quote) === id))));
+    const answer = candidates.sort((a, b) => b.lines.length - a.lines.length)[0];
+    drafts.delete(rule);
     stats.submissions++;
-    add({ kind: "submission", quotes: confirmed, accepted: Boolean(answer), claim });
+    add({ kind: "submission", quotes: confirmed, accepted: Boolean(answer), claim, ...(claimSpeaker ? { speaker: claimSpeaker } : {}) });
     if (answer) {
+      if (proofId) proved.add(proofId);
       run(() => dialogue.go(answer.go));
     } else {
       const mistake = rule.mistakes?.find(item =>
-        (!item.unlessAmended || !applied.includes(item.unlessAmended)) && sameLines(item.lines, confirmed));
-      emit(dialogue.fragment(stale ? "stale" : (mistake?.go ?? rule.wrong)));
+        (!item.unlessAmended || !applied.includes(item.unlessAmended)) &&
+        !item.excludes?.some(id => confirmed.some(q => lineKey(q) === id)) &&
+        (item.partial ? covers(item.lines) : sameLines(item.lines, confirmed)));
+      if (stale) {
+        const outdated = confirmed.find(q => !q.current)!;
+        add({ kind: "locate", document: outdated.document, line: outdated.line });
+        emit(dialogue.fragment("stale"));
+      } else {
+        emit(dialogue.fragment(mistake?.go ?? rule.wrong));
+      }
       setback("wrong", rule.back);
     }
+  }
+
+  function finish(result: Outcome, refused = false) {
+    phase = "ended";
+    outcome = result;
+    emit(dialogue.fragment(refused ? "refused_leave" : `finish_${result}`));
   }
 
   function dispatch(command: Command) {
@@ -131,9 +190,7 @@ export function openNegotiation(chapter: Chapter, compiled: string, saved?: Save
         run(() => dialogue.go(target), true);
         emit(dialogue.fragment("resume"));
       } else if (command.type === "finish" && command.result === "leave") {
-        phase = "ended";
-        outcome = "leave";
-        emit(dialogue.fragment("refused_leave"));
+        finish("leave", true);
       } else return null;
     } else if (command.type === "investigate" && choosing) {
       const spot = hotspots.find(item => item.id === command.id);
@@ -162,8 +219,11 @@ export function openNegotiation(chapter: Chapter, compiled: string, saved?: Save
       run(() => dialogue.choose(choice.index));
     } else if (command.type === "defer" && proof) {
       const back = destination(proof.back);
+      if (proof.preserveDraft) drafts.set(proof, confirmed);
       emit(dialogue.fragment(proof.defer.go));
       run(() => dialogue.go(back), true);
+    } else if (command.type === "submitProof" && proof?.minQuotes !== undefined && confirmed.length >= proof.minQuotes) {
+      resolveProof(proof);
     } else if (command.type === "cite" && proof) {
       const quote = dossier.quote(command.ref);
       if (!quote || confirmed.some(other => lineKey(other) === lineKey(quote))) return null;
@@ -175,9 +235,7 @@ export function openNegotiation(chapter: Chapter, compiled: string, saved?: Save
       confirmed = confirmed.slice(0, command.index);
       emit(dialogue.fragment(proof.steps[confirmed.length]));
     } else if (command.type === "finish" && (command.result === "sign" || command.result === "leave")) {
-      phase = "ended";
-      outcome = command.result;
-      emit(dialogue.fragment(`finish_${outcome}`));
+      finish(command.result);
     } else return null;
     history.push(structuredClone(command));
     return structuredClone(events.slice(start));
@@ -208,7 +266,10 @@ export function openNegotiation(chapter: Chapter, compiled: string, saved?: Save
         })),
         clues: [...clues],
       },
-      proof: phase === "active" && proof ? { count: proof.steps.length, confirmed, defer: proof.defer.text } : null,
+      proof: phase === "active" && proof ? {
+        count: proof.steps.length, confirmed, defer: proof.defer.text,
+        canSubmit: proof.minQuotes !== undefined && confirmed.length >= proof.minQuotes,
+      } : null,
     }),
     act: dispatch,
     save: (): Save => structuredClone({ chapter: chapter.id, revision: chapter.revision, commands: history }),

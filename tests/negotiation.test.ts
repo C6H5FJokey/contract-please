@@ -3,10 +3,12 @@ import { test } from "node:test";
 import { Story } from "inkjs";
 import { openNegotiation } from "../src/negotiation.js";
 import { createPlayback } from "../src/playback.js";
-import { mainChapter, demoChapter } from "../src/chapters.js";
+import { findChapter } from "../src/chapters.js";
+import { chapterUnlocked, completeChapter, completedChapters, saveKey } from "../src/progress.js";
 import type { GameEvent, Reference, Save } from "../src/model.js";
 
-const { chapter: boshi, story } = mainChapter;
+const { chapter: boshi, story } = findChapter("boshi-pay")!;
+const secondChapter = findChapter("yuchuan")!;
 const start = () => openNegotiation(boshi, story);
 type Game = ReturnType<typeof start>;
 function eventText(event: GameEvent | undefined) {
@@ -37,6 +39,192 @@ const present = (game: Game, refs: Reference[]) => {
 };
 const latest = (game: Game, id: string) => game.view().documents.filter(doc => doc.id === id).at(-1);
 const lines = (game: Game, id: string) => latest(game, id)!.sections.flatMap(section => section.lines).map(line => line.text);
+
+const startSecond = () => openNegotiation(secondChapter.chapter, secondChapter.story);
+function citeCurrent(game: Game, ...keys: string[]) {
+  let events: GameEvent[] = [];
+  for (const key of keys) {
+    const [id, line] = key.split(".");
+    const file = latest(game, id);
+    assert.ok(file, `Expected file ${id}`);
+    const delta = game.act({ type: "cite", ref: ref(id, line, file.version) });
+    assert.ok(delta, `Expected to cite ${key}`);
+    events = delta;
+  }
+  if (game.view().proof?.canSubmit) events = game.act({ type: "submitProof" })!;
+  const submission = events.find(event => event.kind === "submission");
+  assert.ok(submission);
+  assert.equal(submission.accepted, true);
+  return submission;
+}
+
+test("an ending unlocks the next chapter and replaying the first invitation keeps it unlocked", () => {
+  const values = new Map<string, string>();
+  const storage: Storage = {
+    get length() { return values.size; },
+    clear: () => values.clear(),
+    getItem: key => values.get(key) ?? null,
+    key: index => [...values.keys()][index] ?? null,
+    removeItem: key => { values.delete(key); },
+    setItem: (key, value) => { values.set(key, value); },
+  };
+  const first = start();
+  const id = secondChapter.chapter.id;
+  assert.equal(chapterUnlocked(id, completedChapters(storage)), false);
+  assert.ok(first.act({ type: "finish", result: "leave" }));
+  const key = saveKey(boshi.id);
+  storage.setItem(key, JSON.stringify({ ...first.save(), readThrough: 0 }));
+  assert.equal(chapterUnlocked(id, completedChapters(storage)), false);
+  storage.setItem(key, JSON.stringify({ ...first.save(), readThrough: first.view().events.at(-1)?.id }));
+  assert.equal(chapterUnlocked(id, completedChapters(storage)), true);
+  completeChapter(storage, boshi.id);
+  storage.removeItem(key);
+  assert.equal(chapterUnlocked(id, completedChapters(storage)), true);
+});
+
+test("Yuchuan opens any clause and can deliver the entire signing directory on request", () => {
+  for (let i = 1; i <= 8; i++) {
+    const game = startSecond();
+    assert.ok(openTopic(game, `0${i}`).some(event => event.kind === "message" && event.who === "player"));
+  }
+  const game = startSecond();
+  const opening = game.view().events;
+  const lastAttachment = opening.findIndex(event => event.kind === "file" && event.document === "D02");
+  assert.ok(lastAttachment > 0);
+  assert.equal(opening[lastAttachment + 1]?.kind, "thought");
+  openTopic(game, "08");
+  const events = game.act({ type: "choose", id: "pack" })!;
+  const attachments = events.filter(event => event.kind === "file");
+  assert.deepEqual(attachments.map(event => event.document), secondChapter.chapter.signing?.attachments);
+  assert.ok(attachments.at(-1)!.id < events.find(event => event.kind === "thought")!.id);
+  assert.ok(game.view().review.choosing);
+  openTopic(game, "03");
+  choose(game, "access");
+  assert.ok(latest(game, "D10"));
+  assert.ok(game.view().events.some(event => event.kind === "message" && event.speaker === "meng"));
+});
+
+test("Yuchuan retains valid short submissions, drafts, and approved changes across the chapter", () => {
+  let game = startSecond();
+  openTopic(game, "01");
+  choose(game, "pay", "promise");
+  assert.ok(game.act({ type: "defer" }));
+  assert.equal(game.view().patience, 5);
+  choose(game, "file", "promise");
+  citeCurrent(game, "D05.03");
+  choose(game, "direct", "later");
+  openTopic(game, "02");
+  choose(game, "probation");
+  assert.ok(game.act({ type: "cite", ref: ref("D00", "02") }));
+  assert.ok(game.act({ type: "defer" }));
+  game = openNegotiation(secondChapter.chapter, secondChapter.story, game.save());
+  choose(game, "probation");
+  assert.equal(game.view().proof?.confirmed[0]?.line, "02");
+  citeCurrent(game, "D01.01", "D01.05");
+  choose(game, "employment", "accept");
+  assert.equal(latest(game, "D00")?.name, "劳动合同");
+  assert.match(lines(game, "D02")[0], /《劳动合同》/);
+  assert.ok(latest(game, "D04"));
+  openTopic(game, "01");
+  choose(game, "accept");
+  assert.match(lines(game, "D00")[0], /甲方：与川数字有限公司/);
+  assert.equal(latest(game, "D00")?.name, "劳动合同");
+  openTopic(game, "05");
+  choose(game, "file", "promise");
+  citeCurrent(game, "D07.02");
+  choose(game, "accept");
+  openTopic(game, "06");
+  choose(game, "access", "promise");
+  assert.ok(game.act({ type: "defer" }));
+  choose(game, "file", "promise");
+  const p6 = citeCurrent(game, "D10.01", "D08.02");
+  assert.equal(p6.speaker, "zheng");
+  choose(game, "remove", "accept");
+  assert.equal(game.view().amendments.length, 4);
+  assert.equal(game.view().events.filter(event => event.kind === "message" && /拉进来/.test(event.text)).length, 1);
+});
+
+test("Yuchuan pay amendments can be accepted in either order and preserve both intermediate texts", () => {
+  function negotiate(exitFirst: boolean) {
+    const game = startSecond();
+    if (exitFirst) {
+      openTopic(game, "04");
+      choose(game, "exit", "promise");
+      citeCurrent(game, "D09.03", "D09.02");
+      choose(game, "email", "accept");
+      openTopic(game, "04");
+      choose(game, "days", "file", "promise");
+      citeCurrent(game, "D04.02");
+      choose(game, "accept");
+    } else {
+      openTopic(game, "04");
+      choose(game, "file", "promise");
+      citeCurrent(game, "D04.02");
+      choose(game, "accept");
+      openTopic(game, "04");
+      choose(game, "exit", "promise");
+      citeCurrent(game, "D09.02", "D09.03");
+      choose(game, "email", "accept");
+    }
+    const versions = game.view().documents.filter(doc => doc.id === "D00");
+    assert.equal(versions.length, 3);
+    assert.equal(game.view().amendments.length, 2);
+    return game;
+  }
+  const exitFirst = negotiate(true);
+  const daysFirst = negotiate(false);
+  for (const id of ["D00", "D04", "D09"]) assert.deepEqual(lines(exitFirst, id), lines(daysFirst, id));
+  assert.match(lines(exitFirst, "D00").join(" "), /不以在岗满七日.*个人邮箱申请结算/);
+  const events = exitFirst.act({ type: "finish", result: "sign" })!;
+  assert.equal(exitFirst.view().outcome, "sign");
+  assert.ok(events.some(event => event.kind === "file" && event.document === "D08"));
+  assert.ok(events.some(event => event.kind === "thought" && event.text.includes("谈下来的几处")));
+  assert.equal(events.at(-1)?.kind, "thought");
+});
+
+test("Yuchuan can defer the exit proof before receiving the handover guide", () => {
+  const game = startSecond();
+  openTopic(game, "04");
+  choose(game, "file", "promise");
+  citeCurrent(game, "D04.02");
+  choose(game, "accept");
+
+  openTopic(game, "04");
+  choose(game, "records", "email", "promise");
+  assert.equal(latest(game, "D09"), undefined);
+  assert.ok(game.act({ type: "defer" }));
+  assert.equal(game.view().patience, 5);
+  choose(game, "file");
+  assert.ok(latest(game, "D09"));
+  choose(game, "promise");
+  citeCurrent(game, "D09.02", "D09.03");
+  choose(game, "email", "accept");
+
+  openTopic(game, "08");
+  choose(game, "exit", "settlement");
+  assert.match(eventText(game.view().events.at(-1)), /结算改走个人邮箱/);
+});
+
+test("Yuchuan proof accepts a sufficient reference with supporting material", () => {
+  const game = startSecond();
+  openTopic(game, "05");
+  choose(game, "file", "promise");
+  const submission = citeCurrent(game, "D07.03", "D07.02");
+  assert.equal(submission.quotes.length, 2);
+  assert.match(eventText(game.view().events.find(event => event.id === submission.id + 1)), /你刚说报到开始/);
+  assert.equal(game.view().patience, 5);
+});
+
+test("Yuchuan can inspect the signing pack without silently receiving missing attachments", () => {
+  const game = startSecond();
+  openTopic(game, "08");
+  choose(game, "versions");
+  const events = game.act({ type: "choose", id: "pack" })!;
+  assert.ok(events.some(event => event.kind === "review" && event.mode === "files"));
+  assert.ok(!events.some(event => event.kind === "file"));
+  assert.equal(latest(game, "D09"), undefined);
+  assert.equal(game.view().phase, "active");
+});
 
 test("an exposed contradiction can be noticed before the material is available", () => {
   const game = start();
@@ -244,12 +432,51 @@ test("reopening an amended topic can produce a second revision without replaying
   assert.deepEqual(game.view().amendments, ["weekend", "timeRecords"]);
 });
 
+test("skipping the typewriter reveals only the current line and leaves the next line waiting", async () => {
+  const log: (string | number)[] = [];
+  let resume: (() => void) | undefined;
+  let startTyping!: () => void;
+  const typing = new Promise<void>(resolve => { startTyping = resolve; });
+  const playback = createPlayback({
+    show(event, text) {
+      log.push(event.id);
+      if (text !== "") return;
+      startTyping();
+      return update => { if (update === "合同发你了。") log.push(update); };
+    },
+    waiting: () => {},
+    waitForNextLine: event => new Promise(resolve => { resume = resolve; log.push(`pause ${event.id}`); }),
+    reviewFiles: async () => {},
+    onIdle: () => log.push("idle"),
+    reduced: () => false,
+  });
+  const pending = playback.play([
+    { id: 1, kind: "message", who: "contact", text: "合同发你了。" },
+    { id: 2, kind: "thought", text: "（我先看看。）" },
+    { id: 3, kind: "message", who: "player", text: "我有个问题。" },
+  ]);
+  await typing;
+  assert.deepEqual(log, [1]);
+  playback.skip(); // Finish the typewriter, without acknowledging the line.
+  await Promise.resolve();
+  assert.deepEqual(log, [1, "合同发你了。", "pause 1"]);
+  playback.skip();
+  assert.ok(resume);
+  resume();
+  await Promise.resolve();
+  assert.deepEqual(log, [1, "合同发你了。", "pause 1", 2, "pause 2"]);
+  resume();
+  await pending;
+  assert.deepEqual(log, [1, "合同发你了。", "pause 1", 2, "pause 2", 3, "idle"]);
+});
+
 test("attachment playback waits after a batch even with reduced motion or a skip request", async () => {
   const log: (string | number)[] = [];
   let resume: (() => void) | undefined;
   const playback = createPlayback({
     show: event => { log.push(event.id); return undefined; },
     waiting: () => {},
+    waitForNextLine: async () => { assert.fail("The final line should give control back to the player"); },
     reviewFiles: event => new Promise(resolve => { resume = resolve; log.push(`review ${event.id}`); }),
     onIdle: () => log.push("idle"),
     reduced: () => true,
@@ -354,7 +581,7 @@ test("the player may sign the original or abandon after a refusal", () => {
 });
 
 test("a floor plan discovery opens a reply and supplies evidence without forcing a conversation", () => {
-  const { chapter, story } = demoChapter;
+  const { chapter, story } = findChapter("window-demo")!;
   let game = openNegotiation(chapter, story);
   const hotspot = { type: "openTopic", from: "hotspot", id: "window" } as const;
   assert.equal(game.act(hotspot), null);

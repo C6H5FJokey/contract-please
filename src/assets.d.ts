@@ -1,6 +1,4 @@
-declare module "*.ink" {
-  const story: string;
-  export default story;
+declare module "game-chapters" {
+  const entries: import("./model.js").ChapterEntry[];
+  export default entries;
 }
-
-declare const INCLUDE_DEMO: boolean;

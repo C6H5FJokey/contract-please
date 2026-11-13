@@ -8,18 +8,33 @@
       name="description"
       content="《来，签合同》是一款单人合同交涉游戏。读合同，和对方谈，把互相冲突的原话摆在一起。"
     />
-    <title>来，签合同 · 合同审阅推理游戏</title>
+    <title>来，签合同</title>
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
     <header class="masthead">
       <div class="brand"><span class="brand-mark" aria-hidden="true">签</span><div><strong>来，签合同</strong><small>CONTRACT, PLEASE</small></div></div>
-      <div class="mast-actions">
+      <div class="mast-actions" id="mast-actions" hidden>
+        <a id="home-link" class="quiet" href="./">章节首页</a>
         <button id="restart" type="button" class="quiet">重新开始</button>
         <button id="finish" type="button" class="finish">结束审阅</button>
       </div>
     </header>
-    <main class="workspace">
+    <main id="lobby" class="lobby">
+      <div class="lobby-layout">
+        <section class="lobby-intro">
+          <h1>来，<wbr />签合同</h1>
+          <p>面试说的待遇，和纸上写的一样吗？<br />读合同，问清条件，再决定签不签。</p>
+          <a id="lobby-continue" class="primary lobby-continue" hidden>打开第一份邀约 <span aria-hidden="true">→</span></a>
+        </section>
+        <section class="invitations" aria-labelledby="invitations-title">
+          <div class="invitations-head"><h2 id="invitations-title">你的邀约</h2><p id="chapter-progress"></p></div>
+          <ol id="chapter-list"></ol>
+        </section>
+      </div>
+      <footer class="lobby-footer">改编自公开劳动争议案例，人物、公司与剧情均为虚构。</footer>
+    </main>
+    <main id="workspace" class="workspace" hidden>
       <div class="case-title">
         <h1 id="case-title"></h1>
         <p id="case-setting"></p>

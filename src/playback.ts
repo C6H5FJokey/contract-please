@@ -1,15 +1,18 @@
 import type { FileEvent, GameEvent } from "./model.js";
 
+type DialogueLine = Extract<GameEvent, { kind: "message" | "thought" }>;
+
 interface PlaybackOptions {
   show: (event: GameEvent, text?: string) => ((text: string) => void) | undefined;
   waiting: (text?: string) => void;
+  waitForNextLine: (event: DialogueLine) => Promise<void>;
   reviewFiles: (event: FileEvent) => Promise<void>;
   onIdle: () => void;
   reduced: () => boolean;
 }
 type Schedule = (callback: () => void, delay: number) => void;
 
-export function createPlayback({ show, waiting, reviewFiles, onIdle, reduced }: PlaybackOptions) {
+export function createPlayback({ show, waiting, waitForNextLine, reviewFiles, onIdle, reduced }: PlaybackOptions) {
   let skipCurrent: (() => void) | undefined;
 
   function interruptible(work: (later: Schedule, end: () => void) => void) {
@@ -57,8 +60,10 @@ export function createPlayback({ show, waiting, reviewFiles, onIdle, reduced }: 
       } else {
         show(event);
       }
+      const next = events[index + 1];
+      if (next && (event.kind === "message" || event.kind === "thought")) await waitForNextLine(event);
       // Deliver consecutive files together so a revision can be reviewed as a set.
-      if (attachment && events[index + 1]?.kind !== "file") await reviewFiles(event);
+      if (attachment && next?.kind !== "file") await reviewFiles(event);
     }
     onIdle();
   }

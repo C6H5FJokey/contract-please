@@ -13,20 +13,30 @@ export function createDossier(documents: Record<string, Material>) {
   }
 
   function amend(edits: Edit[], applied: string[]) {
-    const changes = new Map<DocumentVersion, Map<string, string>>();
+    const changes = new Map<DocumentVersion, Edit[]>();
     for (const edit of edits) {
+      if (edit.ifAmended && !applied.includes(edit.ifAmended)) continue;
       if (edit.unlessAmended && applied.includes(edit.unlessAmended)) continue;
-      const current = visible.get(edit.document)?.at(-1);
-      if (!current?.sections.some(section => section.lines.some(line => line.id === edit.line))) {
-        throw new Error(`Cannot amend ${edit.document}.${edit.line}`);
+      const current = visible.get(edit.document)?.at(-1) ?? publish(edit.document);
+      if (!current || ("line" in edit && !current.sections.some(section => section.lines.some(line => line.id === edit.line)))) {
+        throw new Error(`Cannot amend ${edit.document}`);
       }
-      const replacements = changes.get(current) ?? new Map<string, string>();
-      replacements.set(edit.line, edit.text);
-      changes.set(current, replacements);
+      const revisions = changes.get(current) ?? [];
+      revisions.push(edit);
+      changes.set(current, revisions);
     }
-    return [...changes].map(([current, replacements]) => {
+    return [...changes].map(([current, revisions]) => {
+      const replacements = new Map<string, string>();
+      let { name, detail } = current;
+      for (const edit of revisions) {
+        if ("line" in edit) replacements.set(edit.line, edit.text);
+        else {
+          name = edit.name ?? name;
+          detail = edit.detail ?? detail;
+        }
+      }
       const revised = {
-        ...current,
+        ...current, name, detail,
         version: current.version + 1,
         sections: current.sections.map(section => ({
           ...section,
@@ -55,5 +65,9 @@ export function createDossier(documents: Record<string, Material>) {
     };
   }
 
-  return { publish, amend, quote, has: (id: string) => visible.has(id), documents: () => [...visible.values()].flat() };
+  return {
+    publish, amend, quote, has: (id: string) => visible.has(id),
+    current: (id: string) => visible.get(id)?.at(-1) ?? null,
+    documents: () => [...visible.values()].flat(),
+  };
 }
