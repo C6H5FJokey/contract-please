@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#202b25" />
+    <meta name="theme-color" content="#f3f0e9" />
     <meta
       name="description"
       content="《来，签合同》是一款单人合同交涉游戏。读合同，和对方谈，把互相冲突的原话摆在一起。"
@@ -13,9 +13,9 @@
   </head>
   <body>
     <header class="masthead">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">签</span><div><strong>来，签合同</strong><small>CONTRACT, PLEASE</small></div></div>
+      <a class="brand" href="./" aria-label="来，签合同 · 首页"><span class="brand-mark" aria-hidden="true">签</span><span class="brand-type"><strong>来，签合同</strong><small>CONTRACT, PLEASE</small></span></a>
       <div class="mast-actions" id="mast-actions" hidden>
-        <a id="home-link" class="quiet" href="./">章节首页</a>
+        <a id="home-link" class="quiet" href="./">全部章节</a>
         <button id="restart" type="button" class="quiet">重新开始</button>
         <button id="finish" type="button" class="finish">结束审阅</button>
       </div>
@@ -23,20 +23,22 @@
     <main id="lobby" class="lobby">
       <div class="lobby-layout">
         <section class="lobby-intro">
-          <h1>来，<wbr />签合同</h1>
-          <p>面试说的待遇，和纸上写的一样吗？<br />读合同，问清条件，再决定签不签。</p>
-          <a id="lobby-continue" class="primary lobby-continue" hidden>打开第一份邀约 <span aria-hidden="true">→</span></a>
+          <p class="intro-kicker"><span></span> 一场关于白纸黑字的交涉</p>
+          <h1>一字一句，<br />都有分量<span class="title-dot">。</span></h1>
+          <p class="intro-description">面试说的待遇，和纸上写的一样吗？<br />读合同，问清条件，再决定签不签。</p>
+          <a id="lobby-continue" class="primary lobby-continue" hidden>打开第一份邀约 <span aria-hidden="true">↗</span></a>
+          <div class="intro-principles" aria-label="玩法"><span>细读条款</span><span>提出质疑</span><span>留下依据</span></div>
         </section>
         <section class="invitations" aria-labelledby="invitations-title">
-          <div class="invitations-head"><h2 id="invitations-title">你的邀约</h2><p id="chapter-progress"></p></div>
+          <div class="invitations-head"><div><p class="eyebrow">YOUR CASE FILES</p><h2 id="invitations-title">待处理的邀约</h2></div><p id="chapter-progress"></p></div>
           <ol id="chapter-list"></ol>
         </section>
       </div>
-      <footer class="lobby-footer">改编自公开劳动争议案例，人物、公司与剧情均为虚构。</footer>
+      <footer class="lobby-footer"><span>CONTRACT, PLEASE</span><p>改编自公开劳动争议案例，人物、公司与剧情均为虚构。</p><span>阅读 · 交涉 · 决定</span></footer>
     </main>
     <main id="workspace" class="workspace" hidden>
       <div class="case-title">
-        <h1 id="case-title"></h1>
+        <div class="case-identity"><span class="case-label">CASE REVIEW</span><span class="case-divider" aria-hidden="true"></span><h1 id="case-title"></h1></div>
         <p id="case-setting"></p>
       </div>
       <nav class="pane-tabs" aria-label="切换桌面区域">
@@ -44,13 +46,14 @@
       </nav>
       <div class="board" data-pane="chat">
         <section class="panel dossier" aria-labelledby="docs-heading">
-          <div class="panel-head"><h2 id="docs-heading">合同与资料</h2><span id="doc-count" class="minor"></span></div>
+          <div class="panel-head"><div class="panel-heading"><span class="panel-index">01</span><h2 id="docs-heading">合同与资料</h2></div><span id="doc-count" class="minor"></span></div>
           <nav id="file-tabs" aria-label="已收到的文件"></nav>
           <div id="sheet" class="sheet" tabindex="0" aria-label="当前文件"></div>
           <div id="doc-footer" class="doc-footer" hidden></div>
         </section>
         <section class="panel chat" aria-labelledby="contact">
           <div class="panel-head">
+            <span class="panel-index chat-index" aria-hidden="true">02</span>
             <div class="contact"><span id="avatar" aria-hidden="true"></span><div><h2 id="contact"></h2><p id="contact-role"></p></div></div>
             <div id="patience"></div>
           </div>

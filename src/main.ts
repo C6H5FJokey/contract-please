@@ -38,7 +38,7 @@ if (entry && (entry.status === "demo" || chapterUnlocked(entry.chapter.id, compl
     const name = document.createElement("span");
     name.className = "invitation-name";
     const number = document.createElement("small");
-    number.textContent = `第 ${index + 1} 章`;
+    number.textContent = `CASE ${String(index + 1).padStart(2, "0")} · 第 ${index + 1} 章`;
     const title = document.createElement("strong");
     title.textContent = chapter.title;
     const role = document.createElement("span");
@@ -47,9 +47,14 @@ if (entry && (entry.status === "demo" || chapterUnlocked(entry.chapter.id, compl
     const status = document.createElement("span");
     status.className = "invitation-status";
     status.textContent = unlocked
-      ? (inProgress ? "继续审阅 →" : reviewable ? "查看结案 →" : done ? "重新审阅 →" : "打开邀约 →")
-      : `完成第 ${index} 章后解锁`;
-    card.append(mark, name, status);
+      ? (inProgress ? "审阅中" : reviewable ? "已结案" : done ? "已结案" : "待审阅")
+      : "尚未解锁";
+    const action = document.createElement("span");
+    action.className = "invitation-action";
+    action.textContent = unlocked ? "↗" : "—";
+    action.setAttribute("aria-hidden", "true");
+    card.setAttribute("aria-label", unlocked ? `${chapter.title}，${status.textContent}，打开邀约` : `${chapter.title}，完成第 ${index} 章后解锁`);
+    card.append(mark, name, status, action);
     item.append(card);
     list.append(item);
     return { id: chapter.id, title: chapter.title, unlocked, done, inProgress, reviewable };
