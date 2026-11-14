@@ -202,7 +202,7 @@ test("Yuchuan can defer the exit proof before receiving the handover guide", () 
 
   openTopic(game, "08");
   choose(game, "exit", "settlement");
-  assert.match(eventText(game.view().events.at(-1)), /结算改走个人邮箱/);
+  assert.match(eventText(game.view().events.at(-1)), /账号照关.*个人邮箱申请/);
 });
 
 test("Yuchuan proof accepts a sufficient reference with supporting material", () => {
@@ -211,7 +211,7 @@ test("Yuchuan proof accepts a sufficient reference with supporting material", ()
   choose(game, "file", "promise");
   const submission = citeCurrent(game, "D07.03", "D07.02");
   assert.equal(submission.quotes.length, 2);
-  assert.match(eventText(game.view().events.find(event => event.id === submission.id + 1)), /你刚说报到开始/);
+  assert.match(eventText(game.view().events.find(event => event.id === submission.id + 1)), /你刚说报到以后不会少.*前三个月不交.*以后也不补/);
   assert.equal(game.view().patience, 5);
 });
 
@@ -249,7 +249,7 @@ test("each confirmation reveals the next thought without grading, and the first 
   assert.ok(first);
   assert.equal(first.length, 1);
   assert.equal(first[0].kind, "thought");
-  assert.match(first[0].text, /^（那面试时.*我得.*。）$/);
+  assert.match(first[0].text, /^（面试时.*固定工资。）$/);
   assert.equal(game.view().stats.submissions, 0);
   assert.equal(game.view().patience, 5);
   game = openNegotiation(boshi, story, game.save());
@@ -287,7 +287,9 @@ test("the monthly total is not a fixed wage; the failed submission is saved with
   choose(game, "lines", "confirm");
   const submission = present(game, wrongFixed);
   assert.equal(submission.accepted, false);
-  assert.match(eventText(game.view().events.find(event => event.id === submission.id + 1)), /一个是总数，一个是明细/);
+  const feedback = game.view().events.filter(event => event.id > submission.id);
+  assert.match(eventText(feedback.find(event => event.kind === "message" && event.who === "contact")), /总包.*没说八千全是固定工资/);
+  assert.match(eventText(feedback.find(event => event.kind === "thought")), /一个是总数，一个是明细/);
   assert.equal(game.view().patience, 4);
   const previous = game.view();
   game = openNegotiation(boshi, story, JSON.parse(JSON.stringify(game.save())));
@@ -331,12 +333,14 @@ test("a single quote can directly rebut the latest statement; a roster is not a 
   assert.ok(latest(game, "roster"));
   assert.equal(game.view().proof?.count, 1);
   assert.equal(present(game, [ref("roster", "saturday")]).accepted, false);
-  assert.match(eventText(game.view().events.at(-2)), /只写了你哪天要到/);
+  const feedback = game.view().events.slice(-3);
+  assert.match(eventText(feedback.find(event => event.kind === "message" && event.who === "contact")), /排班.*只写你哪天要去/);
+  assert.match(eventText(feedback.find(event => event.kind === "thought")), /得看薪酬单/);
   choose(game, "one");
   const correct = present(game, weekendLine());
   assert.ok(correct.accepted);
   assert.ok(correct.claim);
-  assert.match(correct.claim, /去一场就算一场/);
+  assert.match(correct.claim, /去一场就给一场的钱/);
   assert.equal(correct.quotes.length, 1);
   const response = game.view().events.find(event => event.id === correct.id + 1);
   assert.ok(response?.kind === "message");
@@ -503,7 +507,7 @@ test("at zero, only leave or a full-patience continuation is available; continui
   }
   assert.equal(game.view().phase, "refused");
   assert.equal(game.view().patience, 0);
-  assert.match(eventText(game.view().events.at(-2)), /签署流程停一下/);
+  assert.match(eventText(game.view().events.at(-2)), /把签署停一下/);
   assert.equal(game.act({ type: "choose", id: "one" }), null);
   assert.equal(game.act({ type: "openTopic", from: "clause", id: "term" }), null);
   assert.equal(game.act({ type: "finish", result: "sign" }), null);

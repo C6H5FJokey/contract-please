@@ -333,12 +333,12 @@ export function mountNegotiation(entry: ChapterEntry) {
   function renderPatience() {
     const bar = $("patience");
     bar.setAttribute("aria-label", `对方耐心 ${displayPatience} / ${view.maxPatience}`);
-    const hearts = node("span", "hearts");
-    hearts.setAttribute("aria-hidden", "true");
+    const segments = node("span", "patience-segments");
+    segments.setAttribute("aria-hidden", "true");
     for (let index = 0; index < view.maxPatience; index++) {
-      hearts.append(node("span", index < displayPatience ? "full" : "empty", index < displayPatience ? "♥" : "♡"));
+      segments.append(node("span", index < displayPatience ? "full" : "empty"));
     }
-    bar.replaceChildren(node("span", "minor", "耐心"), hearts);
+    bar.replaceChildren(node("span", "minor", "耐心"), segments);
   }
 
   function renderEvent(event: GameEvent, text = "text" in event ? event.text : undefined, replay = false) {
@@ -696,12 +696,12 @@ export function mountNegotiation(entry: ChapterEntry) {
   function confirm(title: string, detail: string, actions: [string, () => void, string][], summary?: HTMLElement, returnToContract = false) {
     const heading = node("h2", "", title);
     heading.id = "modal-title";
+    heading.tabIndex = -1;
     const controls = node("div", "modal-actions");
     const cancel = button(returnToContract ? "回去继续核对" : "返回", () => {
       modal.close();
       if (returnToContract) openFile(chapter.contract);
     }, "quiet");
-    cancel.autofocus = true;
     controls.append(cancel);
     for (const [label, action, style] of actions) {
       controls.append(button(label, () => { modal.close(); action(); }, style));
@@ -709,6 +709,7 @@ export function mountNegotiation(entry: ChapterEntry) {
     modal.replaceChildren(heading, node("p", "", detail), controls);
     if (summary) modal.insertBefore(summary, controls);
     modal.showModal();
+    heading.focus();
   }
 
   function showFinishDialog() {
