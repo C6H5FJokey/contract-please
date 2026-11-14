@@ -21,6 +21,7 @@ if (entry && (entry.status === "demo" || chapterUnlocked(entry.chapter.id, compl
   }
   const list = document.getElementById("chapter-list")!;
   const continueLink = document.querySelector<HTMLAnchorElement>("#lobby-continue")!;
+  const continueLabel = document.getElementById("lobby-continue-label")!;
   const cards = campaign.map((entry, index) => {
     const { chapter } = entry;
     const unlocked = chapterUnlocked(chapter.id, completed);
@@ -64,8 +65,8 @@ if (entry && (entry.status === "demo" || chapterUnlocked(entry.chapter.id, compl
     cards.find(card => card.unlocked && !card.done) ?? cards.at(-1);
   if (next) {
     continueLink.href = chapterUrl(next.id);
-    continueLink.firstChild!.textContent = next.inProgress ? `继续审阅 ${next.title} `
-      : next.reviewable ? `查看结案 ${next.title} ` : `打开${next.title}的邀约 `;
+    continueLabel.textContent = next.inProgress ? `继续审阅 ${next.title}`
+      : next.reviewable ? `查看结案 ${next.title}` : `打开${next.title}的邀约`;
     continueLink.hidden = false;
   }
 }

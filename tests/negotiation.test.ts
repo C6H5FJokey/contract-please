@@ -249,7 +249,7 @@ test("each confirmation reveals the next thought without grading, and the first 
   assert.ok(first);
   assert.equal(first.length, 1);
   assert.equal(first[0].kind, "thought");
-  assert.match(first[0].text, /^（再看面试微信.*「固定八千」.*找出来。）$/);
+  assert.match(first[0].text, /^（面试时.*固定工资。）$/);
   assert.equal(game.view().stats.submissions, 0);
   assert.equal(game.view().patience, 5);
   game = openNegotiation(boshi, story, game.save());

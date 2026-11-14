@@ -124,11 +124,11 @@ EXTERNAL in_game()
 -> END
 
 === fixedWindow_step_1 ===
-她说固定工资一直没变。那就先看看确认单：固定那一栏到底写了多少？ # thought
+她说固定工资一直没变。可我们说的「固定」，真的是同一笔钱吗？ # thought
 -> END
 
 === fixedWindow_step_2 ===
-再看面试微信。她当时亲口说的「固定八千」，得把那一句找出来。 # thought
+面试时她把这个数说得挺肯定。我记得她说的也是固定工资。 # thought
 -> END
 
 === fixedWindow_right_1 ===
@@ -236,7 +236,7 @@ EXTERNAL in_game()
 -> END
 
 === weekendWindow_step_1 ===
-她说去一场就给一场的钱。确认单真是这么写的？得找发放条件那句。 # thought
+她说去一场就给一场的钱。那写在纸上的，也是这个意思吗？ # thought
 -> END
 
 === weekendWindow_right_1 ===
@@ -270,7 +270,7 @@ EXTERNAL in_game()
 
 === weekendOffer ===
 对，这行确实是两次才发。只去一场，薪酬组照这张单就不会给。
-这样，我把两次的门槛删掉，周六按现场记录另算。排班还得听运营的，这个我免不掉。
+这样，我把两次的门槛删掉。周六超出正常工时的部分，按现场记录另算。排班还得听运营的，这个我免不掉。
 + [可以。正文和确认单都写按实际工时另结，别再写必须做满两次。 # choice:accept]
     -> weekendApply
 + [谁记实际工时？我不想到了发工资才知道那天没记上。 # choice:check]
