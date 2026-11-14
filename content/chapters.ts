@@ -5,6 +5,6 @@ import type { Chapter, ChapterStatus } from "../src/model.js";
 
 export const chapterCatalog: readonly { chapter: Chapter; status: ChapterStatus }[] = [
   { chapter: boshi, status: "released" },
-  { chapter: yuchuan, status: "candidate" },
+  { chapter: yuchuan, status: "released" },
   { chapter: windowDemo, status: "demo" },
 ];
